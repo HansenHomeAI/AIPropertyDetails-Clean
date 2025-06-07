@@ -8,6 +8,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app, sen
 
 from app.services.openai_service import OpenAIService
 from app.services.document_processor import DocumentProcessor
+from app.services.validation_service import ValidationService
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,9 @@ def get_openai_service():
 
 def get_document_processor():
     return DocumentProcessor()
+
+def get_validation_service():
+    return ValidationService()
 
 # Web interface routes
 @main_bp.route('/')
@@ -167,7 +171,11 @@ def analyze_document():
         openai_service = get_openai_service()
         analysis_result = openai_service.analyze_property_document(analysis_path, document_type)
         
-        # Compile final results
+        # Validate results with government database cross-referencing
+        validation_service = get_validation_service()
+        validation_result = validation_service.validate_analysis_result(analysis_result)
+        
+        # Compile final results with validation
         final_result = {
             'analysis_id': str(uuid.uuid4()),
             'file_id': file_id,
@@ -178,6 +186,8 @@ def analyze_document():
                 'file_type': 'image'
             },
             'ai_analysis': analysis_result,
+            'validation_results': validation_result,
+            'final_confidence_score': validation_result.get('recommended_confidence', analysis_result.get('confidence_score', 0.0)),
             'status': 'completed'
         }
         
