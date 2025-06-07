@@ -9,6 +9,7 @@ from flask import Blueprint, render_template, request, jsonify, current_app, sen
 from app.services.openai_service import OpenAIService
 from app.services.document_processor import DocumentProcessor
 from app.services.validation_service import ValidationService
+from app.services.georeferencing_service import GeoReferencingService
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,9 @@ def get_document_processor():
 
 def get_validation_service():
     return ValidationService()
+
+def get_georeferencing_service():
+    return GeoReferencingService()
 
 # Web interface routes
 @main_bp.route('/')
@@ -175,7 +179,23 @@ def analyze_document():
         validation_service = get_validation_service()
         validation_result = validation_service.validate_analysis_result(analysis_result)
         
-        # Compile final results with validation
+        # Geo-reference to calculate exact geographic coordinates
+        georeferencing_service = get_georeferencing_service()
+        geo_result = georeferencing_service.geo_reference_property(analysis_result)
+        
+        # Update boundary coordinates with calculated geographic coordinates
+        if geo_result.get('status') == 'success' and geo_result.get('calculated_vertices'):
+            # Replace the vertices in analysis_result with geo-referenced coordinates
+            analysis_result['boundary_coordinates']['vertices'] = geo_result['calculated_vertices']
+            analysis_result['boundary_coordinates']['coordinate_system'] = 'WGS84 (lat/long)'
+            analysis_result['boundary_coordinates']['datum'] = 'WGS84'
+            
+            # Boost confidence for successful geo-referencing
+            geo_confidence_boost = geo_result.get('confidence_score', 0.0) * 0.1
+            current_confidence = analysis_result.get('confidence_score', 0.0)
+            analysis_result['confidence_score'] = min(1.0, current_confidence + geo_confidence_boost)
+        
+        # Compile final results with validation and geo-referencing
         final_result = {
             'analysis_id': str(uuid.uuid4()),
             'file_id': file_id,
@@ -187,6 +207,7 @@ def analyze_document():
             },
             'ai_analysis': analysis_result,
             'validation_results': validation_result,
+            'georeferencing_results': geo_result,
             'final_confidence_score': validation_result.get('recommended_confidence', analysis_result.get('confidence_score', 0.0)),
             'status': 'completed'
         }
