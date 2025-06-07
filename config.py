@@ -13,8 +13,13 @@ class Config:
     
     # OpenAI Configuration
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
-    if not OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY environment variable is required")
+    
+    @property
+    def validated_openai_key(self):
+        """Get OpenAI API key with validation"""
+        if not self.OPENAI_API_KEY:
+            raise ValueError("OPENAI_API_KEY environment variable is required")
+        return self.OPENAI_API_KEY
     OPENAI_MODEL = 'o4-mini-2025-04-16'  # Using the latest o4-mini model
     OPENAI_MAX_TOKENS = 4000
     OPENAI_TEMPERATURE = 0.1  # Lower temperature for more consistent analysis

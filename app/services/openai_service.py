@@ -80,8 +80,8 @@ class OpenAIService:
                         ]
                     }
                 ],
-                max_tokens=current_app.config.get('OPENAI_MAX_TOKENS', 4000),
-                temperature=current_app.config.get('OPENAI_TEMPERATURE', 0.1)
+                max_completion_tokens=current_app.config.get('OPENAI_MAX_TOKENS', 4000)
+                # Note: o4-mini only supports default temperature of 1
             )
             
             # Parse response

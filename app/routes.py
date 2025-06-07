@@ -143,41 +143,29 @@ def analyze_document():
         
         logger.info(f"Starting analysis for file_id: {file_id}")
         
-        # Find the uploaded file
+        # Find the processed image file (from PDF conversion or original image)
         upload_folder = current_app.config['UPLOAD_FOLDER']
-        file_path = None
+        analysis_path = None
         
-        # Look for file with this ID
-        for file in upload_folder.glob(f"{file_id}.*"):
-            file_path = str(file)
-            break
+        # Look for converted PNG file first (from PDF processing)
+        png_file = upload_folder / f"{file_id}_page_1.png"
+        if png_file.exists():
+            analysis_path = str(png_file)
+        else:
+            # Look for original uploaded file
+            for file in upload_folder.glob(f"{file_id}.*"):
+                if file.suffix.lower() in ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.tif']:
+                    analysis_path = str(file)
+                    break
         
-        if not file_path or not os.path.exists(file_path):
-            return jsonify({'error': 'File not found'}), 404
+        if not analysis_path or not os.path.exists(analysis_path):
+            return jsonify({'error': 'Processed image file not found'}), 404
         
-        # Process the file first
-        processor = get_document_processor()
-        file_info = processor.process_uploaded_file(file_path, f"{file_id}_document")
-        
-        if not file_info.get('ready_for_analysis'):
-            return jsonify({
-                'error': 'File not ready for analysis',
-                'details': file_info.get('error_message', 'Unknown processing error')
-            }), 400
-        
-        # Get the analysis path (optimized image or converted image from PDF)
-        analysis_path = file_info.get('analysis_path', file_path)
+        logger.info(f"Using analysis path: {analysis_path}")
         
         # Analyze with OpenAI o4-mini
         openai_service = get_openai_service()
-        
-        if file_info.get('file_type') == 'text':
-            # Handle text files differently
-            text_content = file_info.get('text_properties', {}).get('content', '')
-            analysis_result = openai_service.extract_coordinates_from_text(text_content)
-        else:
-            # Handle image files (including converted PDFs)
-            analysis_result = openai_service.analyze_property_document(analysis_path, document_type)
+        analysis_result = openai_service.analyze_property_document(analysis_path, document_type)
         
         # Compile final results
         final_result = {
@@ -186,19 +174,12 @@ def analyze_document():
             'document_type': document_type,
             'analysis_timestamp': datetime.utcnow().isoformat(),
             'file_processing': {
-                'original_filename': file_info.get('original_filename'),
-                'file_type': file_info.get('file_type'),
-                'processing_summary': processor.get_file_info_summary(file_info)
+                'analysis_path': analysis_path,
+                'file_type': 'image'
             },
             'ai_analysis': analysis_result,
             'status': 'completed'
         }
-        
-        # Clean up temporary files
-        try:
-            processor.cleanup_processed_files(file_info)
-        except Exception as e:
-            logger.warning(f"Cleanup failed: {str(e)}")
         
         logger.info(f"Analysis completed for file_id: {file_id}")
         

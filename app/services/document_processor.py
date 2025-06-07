@@ -113,11 +113,11 @@ class DocumentProcessor:
             return {
                 **file_info,
                 'image_properties': {
-                    'width': width,
-                    'height': height,
-                    'mode': mode,
-                    'format': format_name,
-                    'has_transparency': mode in ('RGBA', 'LA') or 'transparency' in image.info
+                    'width': int(width),
+                    'height': int(height),
+                    'mode': str(mode),
+                    'format': str(format_name) if format_name else None,
+                    'has_transparency': bool(mode in ('RGBA', 'LA') or 'transparency' in image.info)
                 },
                 'optimized_path': optimized_path,
                 'analysis_path': optimized_path or file_path,
@@ -309,12 +309,12 @@ class DocumentProcessor:
             quality_score = np.mean(quality_factors)
             
             return {
-                'quality_score': round(quality_score, 2),
-                'sharpness': round(laplacian_var, 2),
-                'brightness': round(brightness, 2),
-                'contrast': round(contrast, 2),
+                'quality_score': round(float(quality_score), 2),
+                'sharpness': round(float(laplacian_var), 2),
+                'brightness': round(float(brightness), 2),
+                'contrast': round(float(contrast), 2),
                 'issues': issues,
-                'suitable_for_analysis': quality_score > 0.5
+                'suitable_for_analysis': bool(quality_score > 0.5)
             }
             
         except Exception as e:

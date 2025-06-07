@@ -24,11 +24,10 @@ shapely==2.0.6
 
 # File Handling and Utilities
 python-magic==0.4.27
-python-magic-bin==0.4.14  # For Windows compatibility
 python-dotenv==1.0.1
 
-# Image Format Support
-pypdf2==3.0.1
+# PDF Processing
+PyPDF2==3.0.1
 pdf2image==1.17.0
 
 # Development and Testing
