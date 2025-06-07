@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Help & Documentation - AIPropertyDetails{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <h1 class="mb-4">
+                <i class="fas fa-question-circle me-2"></i>
+                Help & Documentation
+            </h1>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Getting Started</h5>
+                </div>
+                <div class="card-body">
+                    <p>AIPropertyDetails uses OpenAI's o4-mini model to analyze property documents and extract boundary coordinates. Here's how to use it:</p>
+                    <ol>
+                        <li><strong>Upload a Document:</strong> Select the document type and upload your parcel map, plat, or survey document</li>
+                        <li><strong>AI Analysis:</strong> The system analyzes your document using advanced visual reasoning</li>
+                        <li><strong>Review Results:</strong> View extracted coordinates and property details</li>
+                        <li><strong>Export Data:</strong> Download results in JSON, CSV, or KML format</li>
+                    </ol>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>Supported Document Types</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-map me-2"></i>Parcel Maps</h6>
+                            <p>Property boundary maps showing lot lines, dimensions, and coordinates.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-border-all me-2"></i>Plat Maps</h6>
+                            <p>Subdivision maps with lot and block numbers, street layouts.</p>
+                        </div>
+                        <div class="col-md-4">
+                            <h6><i class="fas fa-ruler-combined me-2"></i>Survey Documents</h6>
+                            <p>Professional land surveys with precise measurements and coordinates.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5>API Documentation</h5>
+                </div>
+                <div class="card-body">
+                    <p>You can integrate AIPropertyDetails into your own applications using our REST API:</p>
+                    
+                    <h6>Upload Document</h6>
+                    <code>POST /api/upload</code>
+                    <p>Upload a property document for processing.</p>
+                    
+                    <h6>Analyze Document</h6>
+                    <code>POST /api/analyze</code>
+                    <p>Analyze an uploaded document and extract coordinates.</p>
+                    
+                    <h6>Validate Coordinates</h6>
+                    <code>POST /api/validate</code>
+                    <p>Validate extracted coordinates for accuracy.</p>
+                    
+                    <h6>Export Results</h6>
+                    <code>POST /api/export</code>
+                    <p>Export analysis results in various formats.</p>
+                </div>
+            </div>
+            
+            <div class="card">
+                <div class="card-header">
+                    <h5>Important Notes</h5>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning">
+                        <h6><i class="fas fa-exclamation-triangle me-2"></i>Disclaimer</h6>
+                        <p class="mb-0">This system is designed to assist with property analysis but should not be used as the sole source for legal or official property boundary determinations. Always consult with licensed surveyors and legal professionals for official property information.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

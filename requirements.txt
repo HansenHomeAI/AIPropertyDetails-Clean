@@ -1,0 +1,55 @@
+# Flask and Web Framework
+Flask==3.0.0
+Flask-CORS==4.0.0
+Werkzeug==3.0.1
+
+# OpenAI API and HTTP
+openai==1.58.1
+requests==2.32.3
+httpx==0.28.0
+
+# Image Processing and Computer Vision
+Pillow==10.4.0
+opencv-python==4.10.0.84
+numpy==2.1.3
+
+# Data Processing and Analysis
+pandas==2.2.3
+json5==0.9.25
+
+# Geospatial and Coordinates
+geopy==2.4.1
+pyproj==3.7.0
+shapely==2.0.6
+
+# File Handling and Utilities
+python-magic==0.4.27
+python-magic-bin==0.4.14  # For Windows compatibility
+python-dotenv==1.0.1
+
+# Image Format Support
+pypdf2==3.0.1
+pdf2image==1.17.0
+
+# Development and Testing
+pytest==8.3.3
+pytest-flask==1.3.0
+black==24.10.0
+flake8==7.1.1
+
+# Production Deployment
+gunicorn==23.0.0
+
+# Logging and Monitoring
+structlog==24.4.0
+
+# Database (for future use)
+SQLAlchemy==2.0.36
+Flask-SQLAlchemy==3.1.1
+
+# Security
+cryptography==43.0.3
+
+# Configuration Management
+pydantic==2.10.3
+pydantic-settings==2.6.1 

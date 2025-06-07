@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Document - AIPropertyDetails{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-cloud-upload-alt me-2"></i>
+                        Upload Property Document
+                    </h4>
+                </div>
+                
+                <div class="card-body">
+                    <!-- Document Type Selection -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">Document Type</label>
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="document_type" 
+                                           id="type_parcel" value="parcel_map" checked>
+                                    <label class="form-check-label" for="type_parcel">
+                                        <i class="fas fa-map me-1"></i>
+                                        Parcel Map
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="document_type" 
+                                           id="type_plat" value="plat">
+                                    <label class="form-check-label" for="type_plat">
+                                        <i class="fas fa-border-all me-1"></i>
+                                        Plat Map
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="document_type" 
+                                           id="type_survey" value="survey">
+                                    <label class="form-check-label" for="type_survey">
+                                        <i class="fas fa-ruler-combined me-1"></i>
+                                        Survey Document
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- File Upload Zone -->
+                    <div class="upload-zone" id="upload-zone">
+                        <div class="upload-content">
+                            <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
+                            <h5>Drag & drop your file here</h5>
+                            <p class="text-muted mb-3">or click to browse</p>
+                            <button type="button" class="btn btn-primary" id="browse-btn">
+                                <i class="fas fa-folder-open me-2"></i>Browse Files
+                            </button>
+                            <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.pdf,.tiff,.bmp,.txt" style="display: none;">
+                        </div>
+                    </div>
+
+                    <!-- Supported Formats -->
+                    <div class="mt-3">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Supported formats: PNG, JPG, PDF, TIFF, BMP, TXT (max 16MB)
+                        </small>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results will be displayed here -->
+            <div id="results-container" style="display: none;">
+                <!-- Results will be dynamically inserted -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('file-input');
+    const browseBtn = document.getElementById('browse-btn');
+    const uploadZone = document.getElementById('upload-zone');
+    
+    browseBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', handleFileSelect);
+    uploadZone.addEventListener('dragover', handleDragOver);
+    uploadZone.addEventListener('drop', handleDrop);
+    
+    function handleDragOver(e) {
+        e.preventDefault();
+        uploadZone.classList.add('dragover');
+    }
+    
+    function handleDrop(e) {
+        e.preventDefault();
+        uploadZone.classList.remove('dragover');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            processFile(files[0]);
+        }
+    }
+    
+    function handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+            processFile(file);
+        }
+    }
+    
+    async function processFile(file) {
+        try {
+            showAlert('Uploading file...', 'info');
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            formData.append('document_type', document.querySelector('input[name="document_type"]:checked').value);
+            
+            const uploadResponse = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const uploadResult = await uploadResponse.json();
+            
+            if (!uploadResult.success) {
+                throw new Error(uploadResult.error);
+            }
+            
+            showAlert('File uploaded successfully. Starting analysis...', 'success');
+            
+            const analyzeResponse = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    file_id: uploadResult.file_id,
+                    document_type: document.querySelector('input[name="document_type"]:checked').value
+                })
+            });
+            
+            const analyzeResult = await analyzeResponse.json();
+            
+            if (!analyzeResult.success) {
+                throw new Error(analyzeResult.error);
+            }
+            
+            showResults(analyzeResult.result);
+            
+        } catch (error) {
+            showAlert('Error: ' + error.message, 'danger');
+        }
+    }
+    
+    function showResults(result) {
+        const container = document.getElementById('results-container');
+        const analysis = result.ai_analysis || {};
+        const coords = analysis.boundary_coordinates || {};
+        const vertices = coords.vertices || [];
+        
+        let html = '<div class="card mt-4">' +
+            '<div class="card-header bg-success text-white">' +
+            '<h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Analysis Complete</h5>' +
+            '</div>' +
+            '<div class="card-body">' +
+            '<h6>Property Details:</h6>' +
+            '<ul>' +
+            '<li><strong>Document Type:</strong> ' + (analysis.document_type || 'N/A') + '</li>' +
+            '<li><strong>Confidence:</strong> ' + (analysis.confidence_score || 'N/A') + '</li>' +
+            '<li><strong>Coordinates Found:</strong> ' + vertices.length + '</li>' +
+            '</ul>';
+        
+        if (vertices.length > 0) {
+            html += '<h6>Boundary Coordinates:</h6>' +
+                '<div class="table-responsive">' +
+                '<table class="table table-striped">' +
+                '<thead><tr>' +
+                '<th>Point</th><th>Latitude</th><th>Longitude</th><th>Description</th>' +
+                '</tr></thead><tbody>';
+            
+            vertices.forEach((vertex, i) => {
+                html += '<tr>' +
+                    '<td>' + (vertex.point_id || 'Point ' + (i+1)) + '</td>' +
+                    '<td>' + (vertex.latitude || 'N/A') + '</td>' +
+                    '<td>' + (vertex.longitude || 'N/A') + '</td>' +
+                    '<td>' + (vertex.description || '') + '</td>' +
+                    '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+        }
+        
+        html += '<button class="btn btn-primary" onclick="exportResults(\'json\')">Export JSON</button>' +
+            '<button class="btn btn-secondary ms-2" onclick="location.reload()">Analyze Another</button>' +
+            '</div></div>';
+        
+        container.innerHTML = html;
+        container.style.display = 'block';
+        window.currentResult = result;
+    }
+    
+    window.exportResults = async function(format) {
+        if (!window.currentResult) {
+            showAlert('No results to export', 'warning');
+            return;
+        }
+        
+        try {
+            const response = await fetch('/api/export', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    analysis_result: window.currentResult,
+                    format: format
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                const blob = new Blob([result.export_data], {type: 'application/json'});
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'property_analysis.' + format;
+                a.click();
+                URL.revokeObjectURL(url);
+                showAlert('File exported successfully!', 'success');
+            }
+        } catch (error) {
+            showAlert('Export failed: ' + error.message, 'danger');
+        }
+    };
+});
+</script>
+{% endblock %} 

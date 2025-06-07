@@ -1,0 +1,305 @@
+{% extends "base.html" %}
+
+{% block title %}AIPropertyDetails - AI-Powered Property Analysis{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">
+                    <i class="fas fa-map-marked-alt me-3"></i>
+                    AIPropertyDetails
+                </h1>
+                <p class="lead mb-4">
+                    Extract precise property boundary coordinates from parcel maps, plat documents, and legal descriptions using OpenAI's advanced o4-mini visual reasoning model.
+                </p>
+                <div class="d-flex gap-3">
+                    <a href="{{ url_for('main.upload_page') }}" class="btn btn-light btn-lg">
+                        <i class="fas fa-upload me-2"></i>Start Analysis
+                    </a>
+                    <a href="{{ url_for('main.help_page') }}" class="btn btn-outline-light btn-lg">
+                        <i class="fas fa-question-circle me-2"></i>Learn More
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center">
+                <i class="fas fa-map-signs" style="font-size: 8rem; opacity: 0.8;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">Powerful Property Analysis Features</h2>
+            <p class="text-muted">Leveraging cutting-edge AI for accurate property boundary extraction</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-eye fa-3x text-primary"></i>
+                        </div>
+                        <h5 class="card-title">Advanced Visual Analysis</h5>
+                        <p class="card-text">
+                            Uses OpenAI's o4-mini model with state-of-the-art visual reasoning 
+                            to analyze parcel maps, plat documents, and survey drawings.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-map-pin fa-3x text-success"></i>
+                        </div>
+                        <h5 class="card-title">Precise Coordinate Extraction</h5>
+                        <p class="card-text">
+                            Extracts exact geocoordinates for property boundaries, enabling 
+                            accurate replication in 3D models and GIS systems.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100">
+                    <div class="card-body text-center p-4">
+                        <div class="mb-3">
+                            <i class="fas fa-file-alt fa-3x text-info"></i>
+                        </div>
+                        <h5 class="card-title">Multi-Format Support</h5>
+                        <p class="card-text">
+                            Handles various document types including images (PNG, JPG), 
+                            PDFs, and text-based legal descriptions.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- How It Works Section -->
+<section class="py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">How It Works</h2>
+            <p class="text-muted">Simple steps to extract property boundary coordinates</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-3 text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-primary text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <span class="fw-bold fs-4">1</span>
+                    </div>
+                </div>
+                <h5>Upload Document</h5>
+                <p class="text-muted">Upload your parcel map, plat, or survey document</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-success text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <span class="fw-bold fs-4">2</span>
+                    </div>
+                </div>
+                <h5>AI Analysis</h5>
+                <p class="text-muted">o4-mini analyzes the document with advanced visual reasoning</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-info text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <span class="fw-bold fs-4">3</span>
+                    </div>
+                </div>
+                <h5>Extract Coordinates</h5>
+                <p class="text-muted">Precise boundary coordinates are identified and extracted</p>
+            </div>
+            
+            <div class="col-md-3 text-center">
+                <div class="mb-3">
+                    <div class="rounded-circle bg-warning text-white d-inline-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                        <span class="fw-bold fs-4">4</span>
+                    </div>
+                </div>
+                <h5>Export Results</h5>
+                <p class="text-muted">Download coordinates in JSON, CSV, or KML format</p>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Technical Details Section -->
+<section class="py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h2 class="fw-bold mb-4">Powered by OpenAI o4-mini</h2>
+                <p class="mb-3">
+                    This system leverages OpenAI's newest reasoning model, o4-mini, released in 2025. 
+                    This model excels in visual analysis and multimodal understanding, making it 
+                    perfect for interpreting complex property documents.
+                </p>
+                
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span>Visual reasoning</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span>High accuracy</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span>Fast processing</span>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-check-circle text-success me-2"></i>
+                            <span>Multi-format support</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6">
+                <div class="bg-light p-4 rounded">
+                    <h5 class="mb-3">
+                        <i class="fas fa-cogs me-2"></i>
+                        System Capabilities
+                    </h5>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Analyzes parcel maps and plat documents
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Extracts property boundary coordinates
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Identifies survey measurements and bearings
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Processes legal descriptions
+                        </li>
+                        <li class="mb-2">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Validates coordinate systems
+                        </li>
+                        <li class="mb-0">
+                            <i class="fas fa-arrow-right text-primary me-2"></i>
+                            Exports to multiple formats
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Call to Action -->
+<section class="py-5 bg-primary text-white">
+    <div class="container text-center">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <h2 class="fw-bold mb-3">Ready to Analyze Your Property Documents?</h2>
+                <p class="lead mb-4">
+                    Start extracting precise boundary coordinates from your parcel maps and legal documents today.
+                </p>
+                <a href="{{ url_for('main.upload_page') }}" class="btn btn-light btn-lg">
+                    <i class="fas fa-upload me-2"></i>
+                    Get Started Now
+                </a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- API Information -->
+<section class="py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="fw-bold">API Endpoints</h2>
+            <p class="text-muted">Integrate property analysis into your own applications</p>
+        </div>
+        
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="badge bg-primary me-2">POST</span>
+                            /api/upload
+                        </h5>
+                        <p class="card-text">Upload and process property documents for analysis</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="badge bg-success me-2">POST</span>
+                            /api/analyze
+                        </h5>
+                        <p class="card-text">Analyze uploaded documents and extract coordinates</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="badge bg-info me-2">POST</span>
+                            /api/validate
+                        </h5>
+                        <p class="card-text">Validate extracted coordinates for accuracy</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">
+                            <span class="badge bg-warning me-2">POST</span>
+                            /api/export
+                        </h5>
+                        <p class="card-text">Export results in JSON, CSV, or KML format</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center mt-4">
+            <a href="{{ url_for('main.help_page') }}" class="btn btn-outline-primary">
+                <i class="fas fa-book me-2"></i>
+                View API Documentation
+            </a>
+        </div>
+    </div>
+</section>
+{% endblock %} 
