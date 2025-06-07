@@ -28,7 +28,7 @@ def get_validation_service():
     return ValidationService()
 
 def get_georeferencing_service():
-    return GeoReferencingService()
+    return GeoReferencingService(get_openai_service())
 
 # Web interface routes
 @main_bp.route('/')
@@ -147,9 +147,9 @@ def analyze_document():
             return jsonify({'error': 'file_id is required'}), 400
         
         file_id = data['file_id']
-        document_type = data.get('document_type', 'parcel_map')
+        # Auto-detect document type - no longer requiring user selection
         
-        logger.info(f"Starting analysis for file_id: {file_id}")
+        logger.info(f"Starting enhanced multi-stage analysis for file_id: {file_id}")
         
         # Find the processed image file (from PDF conversion or original image)
         upload_folder = current_app.config['UPLOAD_FOLDER']
@@ -171,9 +171,9 @@ def analyze_document():
         
         logger.info(f"Using analysis path: {analysis_path}")
         
-        # Analyze with OpenAI o4-mini
+        # Analyze with OpenAI o4-mini (auto-detect document type)
         openai_service = get_openai_service()
-        analysis_result = openai_service.analyze_property_document(analysis_path, document_type)
+        analysis_result = openai_service.analyze_property_document(analysis_path, 'auto')
         
         # Validate results with government database cross-referencing
         validation_service = get_validation_service()
@@ -184,14 +184,14 @@ def analyze_document():
         geo_result = georeferencing_service.geo_reference_property(analysis_result)
         
         # Update boundary coordinates with calculated geographic coordinates
-        if geo_result.get('status') == 'success' and geo_result.get('calculated_vertices'):
+        if geo_result.get('success') and geo_result.get('vertices'):
             # Replace the vertices in analysis_result with geo-referenced coordinates
-            analysis_result['boundary_coordinates']['vertices'] = geo_result['calculated_vertices']
+            analysis_result['boundary_coordinates']['vertices'] = geo_result['vertices']
             analysis_result['boundary_coordinates']['coordinate_system'] = 'WGS84 (lat/long)'
             analysis_result['boundary_coordinates']['datum'] = 'WGS84'
             
             # Boost confidence for successful geo-referencing
-            geo_confidence_boost = geo_result.get('confidence_score', 0.0) * 0.1
+            geo_confidence_boost = geo_result.get('confidence', 0.0) * 0.1
             current_confidence = analysis_result.get('confidence_score', 0.0)
             analysis_result['confidence_score'] = min(1.0, current_confidence + geo_confidence_boost)
         

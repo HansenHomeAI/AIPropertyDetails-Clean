@@ -7,8 +7,10 @@ from config import config
 def create_app(config_name='default'):
     """Application factory pattern"""
     
-    # Create Flask application
-    app = Flask(__name__)
+    # Create Flask application with correct template and static directories
+    app = Flask(__name__, 
+                template_folder='../templates',
+                static_folder='../static')
     
     # Load configuration
     app.config.from_object(config[config_name])

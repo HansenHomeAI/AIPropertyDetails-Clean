@@ -7,6 +7,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 import numpy as np
 from flask import current_app
+from .property_database_service import PropertyDatabaseService
 
 logger = logging.getLogger(__name__)
 
@@ -16,82 +17,209 @@ class GeoReferencingService:
     to absolute geographic coordinates through feature matching and database queries
     """
     
-    def __init__(self):
-        self.geocoder = Nominatim(user_agent="AIPropertyDetails")
+    def __init__(self, openai_service):
+        self.openai_service = openai_service
+        self.geocoder = Nominatim(user_agent="AIPropertyDetails/1.0")
+        self.property_db_service = PropertyDatabaseService(openai_service)
         
         # County API endpoints for common regions
         self.county_apis = {
             'washington': {
-                'skamania': 'https://gis.skamaniacounty.org/arcgis/rest/services/',
-                'cowlitz': 'https://gis.co.cowlitz.wa.us/arcgis/rest/services/',
-                'clark': 'https://gis.clark.wa.gov/arcgis/rest/services/'
+                'skamania': 'https://maps.skamaniacounty.org/gis',
+                'cowlitz': 'https://maps.cowlitzcounty.org/gis'
             }
         }
     
     def geo_reference_property(self, analysis_result: Dict) -> Dict:
         """
-        Main method to geo-reference a property and calculate exact coordinates
-        
-        Args:
-            analysis_result: The AI analysis result with survey data
-            
-        Returns:
-            Dictionary with calculated geographic coordinates for all vertices
+        Main geo-referencing pipeline with multi-stage approach:
+        1. Search official government databases (Highest Priority)
+        2. Enhanced geocoding with landmarks
+        3. Survey calculation as fallback
+        4. Visual estimation as last resort
         """
+        
+        logger.info("Starting enhanced multi-stage geo-referencing process")
+        
+        ai_analysis = analysis_result.get('ai_analysis', {})
+        property_details = ai_analysis.get('property_details', {})
+        
+        # Stage 1: Search Official Databases (Highest Priority)
+        logger.info("Stage 1: Searching official property databases")
+        db_result = self.property_db_service.search_all_databases(property_details)
+        
+        if db_result['vertices']:
+            logger.info(f"SUCCESS: Found coordinates in {db_result['source']} with confidence {db_result['confidence']}")
+            return self._create_success_result(
+                vertices=db_result['vertices'],
+                source=db_result['source'],
+                confidence=db_result['confidence'],
+                method="database_lookup"
+            )
+        
+        # Stage 2: Enhanced Survey Analysis (if available)
+        boundary_coords = ai_analysis.get('boundary_coordinates', {})
+        measurements = ai_analysis.get('measurements', {})
+        
+        if boundary_coords.get('vertices') and (measurements.get('bearings') or measurements.get('distances')):
+            logger.info("Stage 2: Enhanced survey calculation with database-validated reference points")
+            survey_result = self._enhanced_survey_calculation(property_details, boundary_coords, measurements)
+            
+            if survey_result['success']:
+                return survey_result
+        
+        # Stage 3: Landmark-Based Geocoding
+        logger.info("Stage 3: Landmark-based coordinate estimation")
+        landmark_result = self._landmark_based_estimation(property_details, ai_analysis)
+        
+        if landmark_result['success']:
+            return landmark_result
+        
+        # Stage 4: Property Center Estimation (Last Resort)
+        logger.info("Stage 4: Property center estimation as fallback")
+        fallback_result = self._property_center_estimation(property_details)
+        
+        return fallback_result
+    
+    def _enhanced_survey_calculation(self, property_details: Dict, boundary_coords: Dict, 
+                                   measurements: Dict) -> Dict:
+        """Enhanced survey calculation with multiple reference point validation"""
+        
+        # Discover property location with multiple methods
+        location_data = self._discover_property_location(property_details)
+        if not location_data:
+            logger.warning("No reference location found for survey calculation")
+            return self._create_failure_result("No reference location available")
+        
+        # Establish multiple reference points
+        reference_points = self._establish_reference_points(
+            location_data, property_details, {}
+        )
+        
+        if not reference_points:
+            logger.warning("No reference points established")
+            return self._create_failure_result("No reference points available")
+        
+        # Calculate coordinates using survey data
+        calculated_vertices = self._calculate_vertex_coordinates(
+            boundary_coords, measurements, reference_points, {}
+        )
+        
+        if not calculated_vertices:
+            logger.warning("Survey coordinate calculation failed")
+            return self._create_failure_result("Survey calculation failed")
+        
+        # Validate results
+        validation_result = self._validate_calculated_coordinates(
+            calculated_vertices, location_data, property_details
+        )
+        
+        confidence = 0.8 if validation_result['closure_check'] else 0.6
+        
+        return self._create_success_result(
+            vertices=calculated_vertices,
+            source="enhanced_survey_calculation",
+            confidence=confidence,
+            method="survey_analysis"
+        )
+    
+    def _landmark_based_estimation(self, property_details: Dict, ai_analysis: Dict) -> Dict:
+        """Estimate coordinates based on landmarks and roads"""
+        
+        addresses = property_details.get('addresses', [])
+        if not addresses:
+            return self._create_failure_result("No addresses available for landmark estimation")
+        
         try:
-            logger.info("Starting geo-referencing process")
-            
-            # Extract property information
-            property_details = analysis_result.get('property_details', {})
-            boundary_coords = analysis_result.get('boundary_coordinates', {})
-            measurements = analysis_result.get('measurements', {})
-            additional_info = analysis_result.get('additional_info', {})
-            
-            # Step 1: Property Location Discovery
-            location_data = self._discover_property_location(property_details)
-            if not location_data:
-                logger.warning("Could not determine property location")
-                return self._create_failure_result("Property location not found")
-            
-            # Step 2: Reference Point Establishment
-            reference_points = self._establish_reference_points(
-                location_data, property_details, additional_info
-            )
-            
-            # Step 3: Scale and Orientation Analysis
-            scale_info = self._analyze_scale_and_orientation(
-                additional_info, location_data
-            )
-            
-            # Step 4: Coordinate Calculation
-            calculated_coords = self._calculate_vertex_coordinates(
-                boundary_coords, measurements, reference_points, scale_info
-            )
-            
-            # Step 5: Validation and Refinement
-            validation_result = self._validate_calculated_coordinates(
-                calculated_coords, location_data, property_details
-            )
-            
-            # Compile results
-            geo_result = {
-                'status': 'success',
-                'method': 'geo_referencing',
-                'reference_location': location_data,
-                'scale_info': scale_info,
-                'calculated_vertices': calculated_coords,
-                'validation': validation_result,
-                'confidence_score': self._calculate_geo_confidence(
-                    location_data, scale_info, validation_result
-                )
+            # Use the property database service for enhanced geocoding
+            search_params = {
+                'addresses': addresses,
+                'legal_descriptions': [property_details.get('legal_description', '')],
+                'county': self._extract_county_from_details(property_details),
+                'state': 'washington'
             }
             
-            logger.info(f"Geo-referencing completed with {len(calculated_coords)} vertices")
-            return geo_result
+            # Use the openai service for enhanced address geocoding
+            geocode_result = self._enhanced_geocoding_with_ai(addresses)
             
+            if geocode_result['success']:
+                return self._create_success_result(
+                    vertices=geocode_result['vertices'],
+                    source="landmark_based_estimation",
+                    confidence=0.65,
+                    method="enhanced_geocoding"
+                )
+        
         except Exception as e:
-            logger.error(f"Geo-referencing failed: {str(e)}")
-            return self._create_failure_result(str(e))
+            logger.warning(f"Landmark-based estimation failed: {str(e)}")
+        
+        return self._create_failure_result("Landmark estimation failed")
+    
+    def _property_center_estimation(self, property_details: Dict) -> Dict:
+        """Final fallback - estimate based on property center"""
+        
+        addresses = property_details.get('addresses', [])
+        if not addresses:
+            return self._create_failure_result("No location information available")
+        
+        try:
+            location = self.geocoder.geocode(addresses[0], timeout=10)
+            if location:
+                # Create a simple rectangular boundary around the center
+                center_coords = self._estimate_property_boundary(
+                    location.latitude, location.longitude
+                )
+                
+                return self._create_success_result(
+                    vertices=center_coords,
+                    source="property_center_estimation",
+                    confidence=0.5,
+                    method="center_estimation"
+                )
+        
+        except Exception as e:
+            logger.warning(f"Property center estimation failed: {str(e)}")
+        
+        return self._create_failure_result("All geo-referencing methods failed")
+    
+    def _extract_county_from_details(self, property_details: Dict) -> Optional[str]:
+        """Extract county information for database searches"""
+        
+        # Check addresses
+        for addr in property_details.get('addresses', []):
+            addr_lower = addr.lower()
+            if 'washougal' in addr_lower:
+                return 'skamania'
+            elif 'longview' in addr_lower:
+                return 'cowlitz'
+            elif 'vancouver' in addr_lower:
+                return 'clark'
+        
+        # Check legal description
+        legal_desc = property_details.get('legal_description', '').lower()
+        if 'skamania' in legal_desc:
+            return 'skamania'
+        elif 'cowlitz' in legal_desc:
+            return 'cowlitz'
+        elif 'clark' in legal_desc:
+            return 'clark'
+        
+        return None
+    
+    def _create_success_result(self, vertices: List[Dict], source: str, 
+                             confidence: float, method: str) -> Dict:
+        """Create successful geo-referencing result"""
+        
+        return {
+            'success': True,
+            'vertices': vertices,
+            'coordinate_system': 'WGS84',
+            'confidence': confidence,
+            'source': source,
+            'method': method,
+            'total_vertices': len(vertices),
+            'geo_referencing_notes': f"Coordinates obtained via {method} from {source}"
+        }
     
     def _discover_property_location(self, property_details: Dict) -> Optional[Dict]:
         """Discover the property location using multiple data sources"""
@@ -482,18 +610,28 @@ class GeoReferencingService:
         
         logger.debug(f"Converting bearing to azimuth: {bearing}")
         
-        # Parse bearing like "N88°57'56"W" or "N88°57'56\"W"
-        # Also handle formats like "N88°57'W" (without seconds)
+        # Clean the bearing string
+        clean_bearing = bearing.replace(' ', '').replace('"', '').replace("'", "'").replace('°', '°')
+        
+        # Parse bearing like "North88°57'56"West" or "N88°57'56"W"
+        # Handle multiple formats including full words and abbreviations
         patterns = [
-            r'([NS])(\d+)[°](\d+)[\'"](\d+)?[\'"]?([EW])',  # With seconds
-            r'([NS])(\d+)[°](\d+)[\'"]([EW])',              # Without seconds
-            r'([NS])(\d+)[°]([EW])',                        # Just degrees
+            # Full word formats: "North88°57'56"West"
+            r'(North|South)(\d+)°(\d+)\'(\d+)"?(East|West)',      # With seconds
+            r'(North|South)(\d+)°(\d+)\'(East|West)',             # Without seconds  
+            r'(North|South)(\d+)°(East|West)',                   # Just degrees
+            # Abbreviated formats: "N88°57'56"W"
+            r'([NS])(\d+)°(\d+)\'(\d+)"?([EW])',                 # With seconds
+            r'([NS])(\d+)°(\d+)\'([EW])',                        # Without seconds
+            r'([NS])(\d+)°([EW])',                               # Just degrees
         ]
         
         match = None
-        for pattern in patterns:
-            match = re.match(pattern, bearing.replace(' ', '').replace('"', '').replace("'", "'"))
+        pattern_used = None
+        for i, pattern in enumerate(patterns):
+            match = re.match(pattern, clean_bearing, re.IGNORECASE)
             if match:
+                pattern_used = i
                 break
         
         if not match:
@@ -501,22 +639,36 @@ class GeoReferencingService:
             return 0.0
         
         groups = match.groups()
-        ns = groups[0]
+        logger.debug(f"Matched pattern {pattern_used}, groups: {groups}")
+        
+        # Normalize direction indicators
+        ns = groups[0].upper()
+        if ns == 'NORTH':
+            ns = 'N'
+        elif ns == 'SOUTH':
+            ns = 'S'
+            
         degrees = int(groups[1])
         
-        # Handle different pattern matches
-        if len(groups) == 5:  # Full format with seconds
+        # Handle different pattern matches based on pattern used
+        if pattern_used in [0, 3]:  # Patterns with seconds
             minutes = int(groups[2])
             seconds = int(groups[3]) if groups[3] else 0
-            ew = groups[4]
-        elif len(groups) == 4:  # Without seconds
+            ew = groups[4].upper()
+        elif pattern_used in [1, 4]:  # Patterns without seconds
             minutes = int(groups[2])
             seconds = 0
-            ew = groups[3]
-        else:  # Just degrees
+            ew = groups[3].upper()
+        else:  # Just degrees (patterns 2, 5)
             minutes = 0
             seconds = 0
-            ew = groups[2]
+            ew = groups[2].upper()
+        
+        # Normalize direction indicators
+        if ew == 'EAST':
+            ew = 'E'
+        elif ew == 'WEST':
+            ew = 'W'
         
         # Convert to decimal degrees
         decimal_degrees = degrees + minutes/60 + seconds/3600
@@ -531,6 +683,7 @@ class GeoReferencingService:
         elif ns == 'N' and ew == 'W':
             azimuth = 360 - decimal_degrees
         else:
+            logger.warning(f"Unknown bearing format: NS={ns}, EW={ew}")
             azimuth = 0.0
         
         logger.debug(f"Converted {bearing} to azimuth {azimuth:.2f}°")
@@ -652,34 +805,88 @@ class GeoReferencingService:
             logger.warning(f"Area calculation failed: {str(e)}")
             return None
     
-    def _calculate_geo_confidence(self, location_data: Dict, scale_info: Dict,
-                                validation_result: Dict) -> float:
-        """Calculate confidence score for geo-referencing results"""
-        
-        confidence = 0.0
-        
-        # Location data quality
-        if location_data:
-            if location_data['accuracy'] == 'address_level':
-                confidence += 0.3
-            elif location_data['accuracy'] == 'section_level':
-                confidence += 0.2
-        
-        # Scale information
-        if scale_info.get('scale_ratio'):
-            confidence += 0.2
-        
-        # Validation results
-        confidence += validation_result.get('overall_confidence', 0.0)
-        
-        return min(1.0, confidence)
-    
     def _create_failure_result(self, error_message: str) -> Dict:
-        """Create standardized failure result"""
+        """Create failure result for geo-referencing"""
         
         return {
-            'status': 'failed',
+            'success': False,
+            'vertices': [],
             'error': error_message,
-            'calculated_vertices': [],
-            'confidence_score': 0.0
-        } 
+            'coordinate_system': None,
+            'confidence': 0.0,
+            'geo_referencing_notes': f"Geo-referencing failed: {error_message}"
+        }
+    
+    def _enhanced_geocoding_with_ai(self, addresses: List[str]) -> Dict:
+        """Enhanced geocoding using AI to understand property context"""
+        
+        result = {
+            'success': False,
+            'vertices': [],
+            'source': None
+        }
+        
+        for address in addresses:
+            enhanced_queries = [
+                f"{address} property boundary",
+                f"{address} parcel",
+                f"{address} lot",
+                address
+            ]
+            
+            for query in enhanced_queries:
+                try:
+                    location = self.geocoder.geocode(query, timeout=10)
+                    if location:
+                        # Generate boundary estimates around the geocoded point
+                        center_coords = self._estimate_property_boundary(
+                            location.latitude, location.longitude
+                        )
+                        
+                        result = {
+                            'success': True,
+                            'vertices': center_coords,
+                            'source': f'enhanced_geocoding: {query}'
+                        }
+                        return result
+                        
+                except Exception as e:
+                    logger.warning(f"Geocoding failed for {query}: {str(e)}")
+                    continue
+        
+        return result
+    
+    def _estimate_property_boundary(self, center_lat: float, center_lng: float) -> List[Dict]:
+        """Estimate property boundary around a center point"""
+        
+        # Create a rough square boundary (this would be enhanced based on property type)
+        offset = 0.001  # Approximately 100 meters
+        
+        vertices = [
+            {
+                'latitude': center_lat - offset,
+                'longitude': center_lng - offset,
+                'point_id': 'SW_corner',
+                'description': 'Southwest corner (estimated)'
+            },
+            {
+                'latitude': center_lat - offset,
+                'longitude': center_lng + offset,
+                'point_id': 'SE_corner',
+                'description': 'Southeast corner (estimated)'
+            },
+            {
+                'latitude': center_lat + offset,
+                'longitude': center_lng + offset,
+                'point_id': 'NE_corner',
+                'description': 'Northeast corner (estimated)'
+            },
+            {
+                'latitude': center_lat + offset,
+                'longitude': center_lng - offset,
+                'point_id': 'NW_corner',
+                'description': 'Northwest corner (estimated)'
+            }
+        ]
+        
+        return vertices 

@@ -476,4 +476,22 @@ Please provide a JSON response with any coordinates, measurements, or geometric 
             
         except Exception as e:
             logger.error(f"Failed to extract coordinates from text: {str(e)}")
+            return []
+    
+    def call_text_api(self, messages: List[Dict]) -> str:
+        """
+        Simple text-only API call for non-vision tasks
+        Used by services that need text analysis without images
+        """
+        try:
+            response = self.client.chat.completions.create(
+                model=current_app.config.get('OPENAI_MODEL', 'o4-mini-2025-04-16'),
+                messages=messages,
+                max_completion_tokens=2000
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            logger.error(f"Text API call failed: {str(e)}")
             raise 

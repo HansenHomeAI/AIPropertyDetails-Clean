@@ -2,62 +2,115 @@
 
 {% block title %}Upload Document - AIPropertyDetails{% endblock %}
 
+{% block extra_head %}
+<!-- Leaflet CSS -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+<style>
+    .split-view {
+        height: calc(100vh - 200px);
+        min-height: 600px;
+    }
+    
+    .upload-panel {
+        height: 100%;
+        overflow-y: auto;
+        padding: 20px;
+        border-right: 1px solid #dee2e6;
+    }
+    
+    .map-panel {
+        height: 100%;
+        position: relative;
+    }
+    
+    #map {
+        height: 100%;
+        width: 100%;
+    }
+    
+    .upload-zone {
+        border: 2px dashed #007bff;
+        border-radius: 10px;
+        padding: 40px 20px;
+        text-align: center;
+        transition: all 0.3s ease;
+        cursor: pointer;
+        background: #f8f9fa;
+    }
+    
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: #0056b3;
+        background: #e7f3ff;
+    }
+    
+    .results-summary {
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 20px;
+    }
+    
+    .coordinate-stats {
+        display: flex;
+        justify-content: space-between;
+        margin: 10px 0;
+    }
+    
+    .stat-item {
+        text-align: center;
+        flex: 1;
+    }
+    
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: #007bff;
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-lg-8">
-            <div class="card shadow">
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="fas fa-cloud-upload-alt me-2"></i>
+                Property Document Analysis with Real-Time Mapping
+            </h2>
+        </div>
+    </div>
+    
+    <div class="row split-view">
+        <!-- Upload Panel -->
+        <div class="col-lg-6 upload-panel">
+            <div class="card h-100">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="mb-0">
-                        <i class="fas fa-cloud-upload-alt me-2"></i>
-                        Upload Property Document
-                    </h4>
+                    <h5 class="mb-0">
+                        <i class="fas fa-upload me-2"></i>
+                        Upload & Analysis
+                    </h5>
                 </div>
                 
                 <div class="card-body">
-                    <!-- Document Type Selection -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">Document Type</label>
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="document_type" 
-                                           id="type_parcel" value="parcel_map" checked>
-                                    <label class="form-check-label" for="type_parcel">
-                                        <i class="fas fa-map me-1"></i>
-                                        Parcel Map
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="document_type" 
-                                           id="type_plat" value="plat">
-                                    <label class="form-check-label" for="type_plat">
-                                        <i class="fas fa-border-all me-1"></i>
-                                        Plat Map
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="col-md-4">
-                                <div class="form-check">
-                                    <input class="form-check-input" type="radio" name="document_type" 
-                                           id="type_survey" value="survey">
-                                    <label class="form-check-label" for="type_survey">
-                                        <i class="fas fa-ruler-combined me-1"></i>
-                                        Survey Document
-                                    </label>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- File Upload Zone -->
                     <div class="upload-zone" id="upload-zone">
                         <div class="upload-content">
                             <i class="fas fa-cloud-upload-alt fa-3x text-muted mb-3"></i>
-                            <h5>Drag & drop your file here</h5>
-                            <p class="text-muted mb-3">or click to browse</p>
+                            <h5>Drag & drop your property document here</h5>
+                            <p class="text-muted mb-3">The system will automatically detect the document type and extract coordinates</p>
                             <button type="button" class="btn btn-primary" id="browse-btn">
                                 <i class="fas fa-folder-open me-2"></i>Browse Files
                             </button>
@@ -69,24 +122,157 @@
                     <div class="mt-3">
                         <small class="text-muted">
                             <i class="fas fa-info-circle me-1"></i>
-                            Supported formats: PNG, JPG, PDF, TIFF, BMP, TXT (max 16MB)
+                            Supported formats: PNG, JPG, PDF, TIFF, BMP, TXT (max 16MB)<br>
+                            <i class="fas fa-magic me-1"></i>
+                            Supports: Parcel maps, plat documents, survey drawings, legal descriptions
                         </small>
+                    </div>
+                    
+                    <!-- Progress Bar -->
+                    <div id="progress-container" style="display: none;">
+                        <div class="progress mt-3">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated" 
+                                 id="progress-bar" role="progressbar"></div>
+                        </div>
+                        <div class="text-center mt-2">
+                            <small id="progress-text">Processing...</small>
+                        </div>
+                    </div>
+                    
+                    <!-- Results Summary -->
+                    <div id="results-summary" style="display: none;" class="results-summary">
+                        <h6><i class="fas fa-chart-line me-2"></i>Analysis Results</h6>
+                        <div class="coordinate-stats">
+                            <div class="stat-item">
+                                <div class="stat-value" id="coord-count">0</div>
+                                <small class="text-muted">Coordinates</small>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="confidence-score">0%</div>
+                                <small class="text-muted">Confidence</small>
+                            </div>
+                            <div class="stat-item">
+                                <div class="stat-value" id="doc-type">-</div>
+                                <small class="text-muted">Type</small>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex gap-2 mt-3">
+                            <button class="btn btn-success btn-sm" id="export-json">
+                                <i class="fas fa-download me-1"></i>Export JSON
+                            </button>
+                            <button class="btn btn-info btn-sm" id="export-csv">
+                                <i class="fas fa-table me-1"></i>Export CSV
+                            </button>
+                            <button class="btn btn-warning btn-sm" id="export-kml">
+                                <i class="fas fa-globe me-1"></i>Export KML
+                            </button>
+                        </div>
+                        
+                        <button class="btn btn-primary mt-2 w-100" onclick="location.reload()">
+                            <i class="fas fa-plus me-1"></i>Analyze Another Document
+                        </button>
                     </div>
                 </div>
             </div>
-
-            <!-- Results will be displayed here -->
-            <div id="results-container" style="display: none;">
-                <!-- Results will be dynamically inserted -->
+        </div>
+        
+        <!-- Map Panel -->
+        <div class="col-lg-6 map-panel">
+            <div class="card h-100">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="fas fa-map-marked-alt me-2"></i>
+                        Property Boundary Visualization
+                    </h5>
+                    <div>
+                        <button class="btn btn-sm btn-outline-light" id="fit-bounds-btn" style="display: none;">
+                            <i class="fas fa-expand-arrows-alt me-1"></i>Fit to View
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="card-body p-0 position-relative">
+                    <div id="map"></div>
+                    <div id="map-loading" class="loading-overlay" style="display: none;">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <div class="mt-2">Plotting coordinates...</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Map Instructions -->
+                    <div id="map-instructions" class="position-absolute top-50 start-50 translate-middle text-center p-4">
+                        <i class="fas fa-map fa-4x text-muted mb-3"></i>
+                        <h5 class="text-muted">Interactive Property Map</h5>
+                        <p class="text-muted">Upload a document to see property boundaries<br>plotted on this interactive map</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
+
+<!-- Alert Container -->
+<div id="alert-container" class="position-fixed top-0 end-0 p-3" style="z-index: 1050;">
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
 <script>
+// Global variables
+let map;
+let propertyLayer;
+let currentResult = null;
+
+// Initialize map
 document.addEventListener('DOMContentLoaded', function() {
+    initializeMap();
+    initializeUpload();
+});
+
+function initializeMap() {
+    // Initialize the map centered on Washougal, WA (based on your test documents)
+    map = L.map('map').setView([45.582, -122.353], 10);
+    
+    // Add tile layers
+    const streetMap = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap contributors'
+    });
+    
+    const satellite = L.tileLayer('https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+        attribution: '© Google'
+    });
+    
+    // Add default layer
+    streetMap.addTo(map);
+    
+    // Add layer control
+    L.control.layers({
+        "Street Map": streetMap,
+        "Satellite": satellite
+    }).addTo(map);
+    
+    // Add scale
+    L.control.scale().addTo(map);
+    
+    // Initialize property layer group
+    propertyLayer = L.layerGroup().addTo(map);
+    
+    // Fit bounds button
+    document.getElementById('fit-bounds-btn').addEventListener('click', function() {
+        if (propertyLayer.getLayers().length > 0) {
+            map.fitBounds(propertyLayer.getBounds(), {padding: [20, 20]});
+        }
+    });
+}
+
+function initializeUpload() {
     const fileInput = document.getElementById('file-input');
     const browseBtn = document.getElementById('browse-btn');
     const uploadZone = document.getElementById('upload-zone');
@@ -95,6 +281,12 @@ document.addEventListener('DOMContentLoaded', function() {
     fileInput.addEventListener('change', handleFileSelect);
     uploadZone.addEventListener('dragover', handleDragOver);
     uploadZone.addEventListener('drop', handleDrop);
+    uploadZone.addEventListener('click', () => fileInput.click());
+    
+    // Export buttons
+    document.getElementById('export-json').addEventListener('click', () => exportResults('json'));
+    document.getElementById('export-csv').addEventListener('click', () => exportResults('csv'));
+    document.getElementById('export-kml').addEventListener('click', () => exportResults('kml'));
     
     function handleDragOver(e) {
         e.preventDefault();
@@ -116,129 +308,252 @@ document.addEventListener('DOMContentLoaded', function() {
             processFile(file);
         }
     }
-    
-    async function processFile(file) {
-        try {
-            showAlert('Uploading file...', 'info');
-            
-            const formData = new FormData();
-            formData.append('file', file);
-            formData.append('document_type', document.querySelector('input[name="document_type"]:checked').value);
-            
-            const uploadResponse = await fetch('/api/upload', {
-                method: 'POST',
-                body: formData
-            });
-            
-            const uploadResult = await uploadResponse.json();
-            
-            if (!uploadResult.success) {
-                throw new Error(uploadResult.error);
-            }
-            
-            showAlert('File uploaded successfully. Starting analysis...', 'success');
-            
-            const analyzeResponse = await fetch('/api/analyze', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    file_id: uploadResult.file_id,
-                    document_type: document.querySelector('input[name="document_type"]:checked').value
-                })
-            });
-            
-            const analyzeResult = await analyzeResponse.json();
-            
-            if (!analyzeResult.success) {
-                throw new Error(analyzeResult.error);
-            }
-            
-            showResults(analyzeResult.result);
-            
-        } catch (error) {
-            showAlert('Error: ' + error.message, 'danger');
+}
+
+async function processFile(file) {
+    try {
+        showProgress(20, 'Uploading file...');
+        clearMap();
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const uploadResponse = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const uploadResult = await uploadResponse.json();
+        
+        if (!uploadResult.success) {
+            throw new Error(uploadResult.error);
         }
+        
+        showProgress(50, 'File uploaded successfully. Starting AI analysis...');
+        showAlert('File uploaded successfully. Starting analysis...', 'success');
+        
+        const analyzeResponse = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                file_id: uploadResult.file_id
+            })
+        });
+        
+        const analyzeResult = await analyzeResponse.json();
+        
+        if (!analyzeResult.success) {
+            throw new Error(analyzeResult.error);
+        }
+        
+        showProgress(100, 'Analysis complete! Plotting coordinates on map...');
+        currentResult = analyzeResult.result;
+        
+        // Show results and plot on map
+        showResults(analyzeResult.result);
+        plotPropertyOnMap(analyzeResult.result);
+        
+        hideProgress();
+        showAlert('Analysis completed successfully!', 'success');
+        
+    } catch (error) {
+        hideProgress();
+        showAlert('Error: ' + error.message, 'danger');
     }
+}
+
+function showResults(result) {
+    const analysis = result.ai_analysis || {};
+    const coords = analysis.boundary_coordinates || {};
+    const vertices = coords.vertices || [];
     
-    function showResults(result) {
-        const container = document.getElementById('results-container');
+    document.getElementById('coord-count').textContent = vertices.length;
+    document.getElementById('confidence-score').textContent = 
+        Math.round((analysis.confidence_score || 0) * 100) + '%';
+    document.getElementById('doc-type').textContent = 
+        (analysis.document_type || 'Unknown').replace('_', ' ');
+    
+    document.getElementById('results-summary').style.display = 'block';
+}
+
+function plotPropertyOnMap(result) {
+    document.getElementById('map-loading').style.display = 'flex';
+    document.getElementById('map-instructions').style.display = 'none';
+    
+    setTimeout(() => {
         const analysis = result.ai_analysis || {};
         const coords = analysis.boundary_coordinates || {};
         const vertices = coords.vertices || [];
         
-        let html = '<div class="card mt-4">' +
-            '<div class="card-header bg-success text-white">' +
-            '<h5 class="mb-0"><i class="fas fa-check-circle me-2"></i>Analysis Complete</h5>' +
-            '</div>' +
-            '<div class="card-body">' +
-            '<h6>Property Details:</h6>' +
-            '<ul>' +
-            '<li><strong>Document Type:</strong> ' + (analysis.document_type || 'N/A') + '</li>' +
-            '<li><strong>Confidence:</strong> ' + (analysis.confidence_score || 'N/A') + '</li>' +
-            '<li><strong>Coordinates Found:</strong> ' + vertices.length + '</li>' +
-            '</ul>';
-        
-        if (vertices.length > 0) {
-            html += '<h6>Boundary Coordinates:</h6>' +
-                '<div class="table-responsive">' +
-                '<table class="table table-striped">' +
-                '<thead><tr>' +
-                '<th>Point</th><th>Latitude</th><th>Longitude</th><th>Description</th>' +
-                '</tr></thead><tbody>';
-            
-            vertices.forEach((vertex, i) => {
-                html += '<tr>' +
-                    '<td>' + (vertex.point_id || 'Point ' + (i+1)) + '</td>' +
-                    '<td>' + (vertex.latitude || 'N/A') + '</td>' +
-                    '<td>' + (vertex.longitude || 'N/A') + '</td>' +
-                    '<td>' + (vertex.description || '') + '</td>' +
-                    '</tr>';
-            });
-            
-            html += '</tbody></table></div>';
-        }
-        
-        html += '<button class="btn btn-primary" onclick="exportResults(\'json\')">Export JSON</button>' +
-            '<button class="btn btn-secondary ms-2" onclick="location.reload()">Analyze Another</button>' +
-            '</div></div>';
-        
-        container.innerHTML = html;
-        container.style.display = 'block';
-        window.currentResult = result;
-    }
-    
-    window.exportResults = async function(format) {
-        if (!window.currentResult) {
-            showAlert('No results to export', 'warning');
+        if (vertices.length === 0) {
+            document.getElementById('map-loading').style.display = 'none';
+            showAlert('No coordinates found to plot on map', 'warning');
             return;
         }
         
-        try {
-            const response = await fetch('/api/export', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    analysis_result: window.currentResult,
-                    format: format
-                })
+        // Clear existing property layer
+        propertyLayer.clearLayers();
+        
+        // Create array of lat/lng points
+        const points = vertices
+            .filter(v => v.latitude && v.longitude)
+            .map(v => [parseFloat(v.latitude), parseFloat(v.longitude)]);
+        
+        if (points.length === 0) {
+            document.getElementById('map-loading').style.display = 'none';
+            showAlert('No valid coordinates found to plot', 'warning');
+            return;
+        }
+        
+        // Add individual markers for each vertex
+        points.forEach((point, index) => {
+            const vertex = vertices[index];
+            const marker = L.circleMarker(point, {
+                radius: 8,
+                fillColor: '#007bff',
+                color: '#ffffff',
+                weight: 2,
+                opacity: 1,
+                fillOpacity: 0.8
             });
             
-            const result = await response.json();
+            // Create popup content
+            const popupContent = `
+                <strong>Point ${index + 1}</strong><br>
+                <strong>Lat:</strong> ${point[0].toFixed(6)}<br>
+                <strong>Lng:</strong> ${point[1].toFixed(6)}<br>
+                ${vertex.description ? '<strong>Description:</strong> ' + vertex.description : ''}
+            `;
             
-            if (result.success) {
-                const blob = new Blob([result.export_data], {type: 'application/json'});
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = 'property_analysis.' + format;
-                a.click();
-                URL.revokeObjectURL(url);
-                showAlert('File exported successfully!', 'success');
-            }
-        } catch (error) {
-            showAlert('Export failed: ' + error.message, 'danger');
+            marker.bindPopup(popupContent);
+            propertyLayer.addLayer(marker);
+        });
+        
+        // If we have 3+ points, create a polygon
+        if (points.length >= 3) {
+            const polygon = L.polygon(points, {
+                color: '#007bff',
+                weight: 3,
+                opacity: 0.8,
+                fillColor: '#007bff',
+                fillOpacity: 0.2
+            });
+            
+            // Calculate area if possible
+            const area = L.GeometryUtil ? 
+                L.GeometryUtil.geodesicArea(points) : 'N/A';
+            
+            polygon.bindPopup(`
+                <strong>Property Boundary</strong><br>
+                <strong>Vertices:</strong> ${points.length}<br>
+                <strong>Confidence:</strong> ${Math.round((analysis.confidence_score || 0) * 100)}%<br>
+                ${area !== 'N/A' ? '<strong>Area:</strong> ' + (area / 4047).toFixed(2) + ' acres' : ''}
+            `);
+            
+            propertyLayer.addLayer(polygon);
         }
-    };
-});
+        
+        // If we have 2 points, draw a line
+        else if (points.length === 2) {
+            const line = L.polyline(points, {
+                color: '#007bff',
+                weight: 3,
+                opacity: 0.8
+            });
+            
+            propertyLayer.addLayer(line);
+        }
+        
+        // Fit map to show all points
+        if (points.length > 0) {
+            map.fitBounds(points, {padding: [50, 50]});
+            document.getElementById('fit-bounds-btn').style.display = 'inline-block';
+        }
+        
+        document.getElementById('map-loading').style.display = 'none';
+    }, 500);
+}
+
+function clearMap() {
+    if (propertyLayer) {
+        propertyLayer.clearLayers();
+    }
+    document.getElementById('fit-bounds-btn').style.display = 'none';
+    document.getElementById('map-instructions').style.display = 'block';
+    document.getElementById('results-summary').style.display = 'none';
+}
+
+function showProgress(percent, text) {
+    const container = document.getElementById('progress-container');
+    const bar = document.getElementById('progress-bar');
+    const textEl = document.getElementById('progress-text');
+    
+    container.style.display = 'block';
+    bar.style.width = percent + '%';
+    bar.textContent = percent + '%';
+    textEl.textContent = text;
+}
+
+function hideProgress() {
+    document.getElementById('progress-container').style.display = 'none';
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alert-container');
+    const alertId = 'alert-' + Date.now();
+    
+    const alertHtml = `
+        <div id="${alertId}" class="alert alert-${type} alert-dismissible fade show" role="alert">
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+    `;
+    
+    container.insertAdjacentHTML('beforeend', alertHtml);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        const alert = document.getElementById(alertId);
+        if (alert) alert.remove();
+    }, 5000);
+}
+
+async function exportResults(format) {
+    if (!currentResult) {
+        showAlert('No results to export', 'warning');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/export', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                analysis_result: currentResult,
+                format: format
+            })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            const blob = new Blob([result.export_data], {
+                type: format === 'json' ? 'application/json' : 
+                      format === 'csv' ? 'text/csv' : 'application/vnd.google-earth.kml+xml'
+            });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'property_analysis.' + format;
+            a.click();
+            URL.revokeObjectURL(url);
+            showAlert('File exported successfully!', 'success');
+        } else {
+            throw new Error(result.error || 'Export failed');
+        }
+    } catch (error) {
+        showAlert('Export failed: ' + error.message, 'danger');
+    }
+}
 </script>
 {% endblock %} 
